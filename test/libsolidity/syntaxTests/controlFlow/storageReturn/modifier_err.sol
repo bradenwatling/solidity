@@ -18,5 +18,4 @@ contract C {
     }
 }
 // ----
-// TypeError 3464: (249-258): This variable is of storage pointer type and can be returned without prior assignment, which would lead to undefined behaviour.
-// TypeError 3464: (367-376): This variable is of storage pointer type and can be returned without prior assignment, which would lead to undefined behaviour.
+// Warning 5740: (378-403): Unreachable code.

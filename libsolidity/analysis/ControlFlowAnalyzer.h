@@ -34,7 +34,7 @@ public:
 	bool run();
 
 private:
-	void analyze(FunctionDefinition const& _function, ContractDefinition const* _contract, FunctionFlow const& _flow);
+	void analyze(CallableDeclaration const& _callable, Block const& _body, ContractDefinition const* _contract, FunctionFlow const& _flow);
 	/// Checks for uninitialized variable accesses in the control flow between @param _entry and @param _exit.
 	/// @param _entry entry node
 	/// @param _exit exit node

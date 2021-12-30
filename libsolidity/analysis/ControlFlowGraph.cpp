@@ -41,17 +41,44 @@ bool CFG::visit(FunctionDefinition const& _function)
 bool CFG::visit(ContractDefinition const& _contract)
 {
 	for (ContractDefinition const* contract: _contract.annotation().linearizedBaseContracts)
+	{
 		for (FunctionDefinition const* function: contract->definedFunctions())
 			if (function->isImplemented())
+			{
+				std::set<ModifierInvocation const*> usedModifierInvocations;
+
 				m_functionControlFlow[{&_contract, function}] =
-					ControlFlowBuilder::createFunctionFlow(m_nodeContainer, *function);
+					ControlFlowBuilder::createFunctionFlow(m_nodeContainer, *function, &usedModifierInvocations);
+
+				for (auto const* modifierInvocation: usedModifierInvocations)
+				{
+					auto const* modifierDefinition =
+						dynamic_cast<ModifierDefinition const*>(
+							modifierInvocation->name().annotation().referencedDeclaration
+						);
+
+					if (!modifierDefinition)
+						continue;
+
+					VirtualLookup const& requiredLookup = *modifierInvocation->name().annotation().requiredLookup;
+
+					if (requiredLookup == VirtualLookup::Virtual)
+						modifierDefinition = &modifierDefinition->resolveVirtual(_contract);
+					if (!modifierDefinition->isImplemented())
+						continue;
+
+					m_functionControlFlow[{&_contract, modifierDefinition}] =
+						ControlFlowBuilder::createFunctionFlow(m_nodeContainer, *modifierDefinition);
+				}
+			}
+	}
 
 	return true;
 }
 
-FunctionFlow const& CFG::functionFlow(FunctionDefinition const& _function, ContractDefinition const* _contract) const
+FunctionFlow const& CFG::functionFlow(CallableDeclaration const& _callable, ContractDefinition const* _contract) const
 {
-	return *m_functionControlFlow.at({_contract, &_function});
+	return *m_functionControlFlow.at({_contract, &_callable});
 }
 
 CFGNode* CFG::NodeContainer::newNode()

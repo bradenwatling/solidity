@@ -18,3 +18,6 @@ contract C {
 
 }
 // ----
+// Warning 5740: (247-275): Unreachable code.
+// Warning 5740: (328-332): Unreachable code.
+// Warning 5740: (348-366): Unreachable code.

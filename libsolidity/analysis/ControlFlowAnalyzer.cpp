@@ -34,27 +34,31 @@ using namespace solidity::frontend;
 bool ControlFlowAnalyzer::run()
 {
 	for (auto& [pair, flow]: m_cfg.allFunctionFlows())
-		analyze(*pair.function, pair.contract, *flow);
+		if (auto const* function = dynamic_cast<FunctionDefinition const*>(pair.callable))
+		{
+			if (function->isImplemented())
+				analyze(*function, function->body(), pair.contract, *flow);
+		}
+		else if (auto const* modifier = dynamic_cast<ModifierDefinition const*>(pair.callable))
+			if (modifier->isImplemented())
+				analyze(*modifier, modifier->body(), pair.contract, *flow);
 
 	return !Error::containsErrors(m_errorReporter.errors());
 }
 
-void ControlFlowAnalyzer::analyze(FunctionDefinition const& _function, ContractDefinition const* _contract, FunctionFlow const& _flow)
+void ControlFlowAnalyzer::analyze(CallableDeclaration const& _callable, Block const& _body, ContractDefinition const* _contract, FunctionFlow const& _flow)
 {
-	if (!_function.isImplemented())
-		return;
-
 	optional<string> mostDerivedContractName;
 
 	// The name of the most derived contract only required if it differs from
 	// the functions contract
-	if (_contract && _contract != _function.annotation().contract)
+	if (_contract && _contract != _callable.annotation().contract)
 		mostDerivedContractName = _contract->name();
 
 	checkUninitializedAccess(
 		_flow.entry,
 		_flow.exit,
-		_function.body().statements().empty(),
+		_body.statements().empty(),
 		mostDerivedContractName
 	);
 	checkUnreachable(_flow.entry, _flow.exit, _flow.revert, _flow.transactionReturn);
