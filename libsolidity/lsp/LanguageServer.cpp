@@ -280,7 +280,10 @@ void LanguageServer::handleTextDocumentDidOpen(MessageID _id, Json::Value const&
 		return;
 
 	if (!_args["textDocument"])
+	{
 		m_client.error(_id, ErrorCode::RequestFailed, "Text document parameter missing.");
+		return;
+	}
 
 	string text = _args["textDocument"]["text"].asString();
 	string uri = _args["textDocument"]["uri"].asString();
@@ -340,7 +343,10 @@ void LanguageServer::handleTextDocumentDidClose(MessageID _id, Json::Value const
 		return;
 
 	if (!_args["textDocument"])
+	{
 		m_client.error(_id, ErrorCode::RequestFailed, "Text document parameter missing.");
+		return;
+	}
 
 	string uri = _args["textDocument"]["uri"].asString();
 	m_openFiles.erase(uri);
