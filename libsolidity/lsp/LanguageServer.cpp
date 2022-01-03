@@ -205,6 +205,10 @@ bool LanguageServer::run()
 			else
 				m_client.error({}, ErrorCode::ParseError, "\"method\" has to be a string.");
 		}
+		catch (lsp::HandlerError const& error)
+		{
+			m_client.error(error.id(), error.code(), error.message());
+		}
 		catch (...)
 		{
 			m_client.error(id, ErrorCode::InternalError, "Unhandled exception: "s + boost::current_exception_diagnostic_information());
@@ -227,10 +231,8 @@ bool LanguageServer::checkServerInitialized(MessageID _id)
 void LanguageServer::handleInitialize(MessageID _id, Json::Value const& _args)
 {
 	if (m_state != State::Started)
-	{
-		m_client.error(_id, ErrorCode::RequestFailed, "Initialize called at the wrong time.");
-		return;
-	}
+		throw HandlerError(_id, ErrorCode::RequestFailed, "Initialize called at the wrong time.");
+
 	m_state = State::Initialized;
 
 	// The default of FileReader is to use `.`, but the path from where the LSP was started
@@ -240,10 +242,7 @@ void LanguageServer::handleInitialize(MessageID _id, Json::Value const& _args)
 	{
 		rootPath = uri.asString();
 		if (!boost::starts_with(rootPath, "file://"))
-		{
-			m_client.error(_id, ErrorCode::InvalidParams, "rootUri only supports file URI scheme.");
-			return;
-		}
+			throw HandlerError(_id, ErrorCode::InvalidParams, "rootUri only supports file URI scheme.");
 		rootPath = rootPath.substr(7);
 	}
 	else if (Json::Value rootPath = _args["rootPath"])
@@ -280,10 +279,7 @@ void LanguageServer::handleTextDocumentDidOpen(MessageID _id, Json::Value const&
 		return;
 
 	if (!_args["textDocument"])
-	{
-		m_client.error(_id, ErrorCode::RequestFailed, "Text document parameter missing.");
-		return;
-	}
+		throw HandlerError(_id, ErrorCode::RequestFailed, "Text document parameter missing.");
 
 	string text = _args["textDocument"]["text"].asString();
 	string uri = _args["textDocument"]["uri"].asString();
@@ -302,31 +298,23 @@ void LanguageServer::handleTextDocumentDidChange(MessageID _id, Json::Value cons
 	for (Json::Value jsonContentChange: _args["contentChanges"])
 	{
 		if (!jsonContentChange.isObject())
-		{
-			m_client.error(_id, ErrorCode::RequestFailed, "Invalid content reference.");
-			return;
-		}
+			throw HandlerError(_id, ErrorCode::RequestFailed, "Invalid content reference.");
 
 		string const sourceUnitName = m_fileRepository.clientPathToSourceUnitName(uri);
 		if (!m_fileRepository.sourceUnits().count(sourceUnitName))
-		{
-			m_client.error(_id, ErrorCode::RequestFailed, "Unknown file: " + uri);
-			return;
-		}
+			throw HandlerError(_id, ErrorCode::RequestFailed, "Unknown file: " + uri);
 
 		string text = jsonContentChange["text"].asString();
 		if (jsonContentChange["range"].isObject()) // otherwise full content update
 		{
 			optional<SourceLocation> change = parseRange(sourceUnitName, jsonContentChange["range"]);
 			if (!change || !change->hasText())
-			{
-				m_client.error(
+				throw HandlerError(
 					_id,
 					ErrorCode::RequestFailed,
 					"Invalid source range: " + jsonCompactPrint(jsonContentChange["range"])
 				);
-				return;
-			}
+
 			string buffer = m_fileRepository.sourceUnits().at(sourceUnitName);
 			buffer.replace(static_cast<size_t>(change->start), static_cast<size_t>(change->end - change->start), move(text));
 			text = move(buffer);
@@ -343,10 +331,7 @@ void LanguageServer::handleTextDocumentDidClose(MessageID _id, Json::Value const
 		return;
 
 	if (!_args["textDocument"])
-	{
-		m_client.error(_id, ErrorCode::RequestFailed, "Text document parameter missing.");
-		return;
-	}
+		throw HandlerError(_id, ErrorCode::RequestFailed, "Text document parameter missing.");
 
 	string uri = _args["textDocument"]["uri"].asString();
 	m_openFiles.erase(uri);
